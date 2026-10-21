@@ -7,6 +7,7 @@ import java.io.File
 
 data class GeoPoint(
     val id: Long,
+    val name: String,
     val lat: Double,
     val lon: Double,
     val createdAt: Long
@@ -15,6 +16,7 @@ data class GeoPoint(
 data class GeoEvent(
     val id: Long,
     val pointId: Long,
+    val pointName: String,
     val type: String,
     val lat: Double,
     val lon: Double,
@@ -46,6 +48,11 @@ class GeoStore(private val dir: File) {
         writeList(eventsFile, events.map { it.toJson() })
     }
 
+    fun deletePoint(id: Long) = synchronized(lock) {
+        val points = loadPoints().filterNot { it.id == id }
+        savePoints(points)
+    }
+
     private fun readList(file: File): List<JSONObject> {
         if (!file.exists()) return emptyList()
         return runCatching {
@@ -66,6 +73,7 @@ class GeoStore(private val dir: File) {
 
     private fun JSONObject.toPoint() = GeoPoint(
         id = getLong("id"),
+        name = optString("name", "Punkt"),
         lat = getDouble("lat"),
         lon = getDouble("lon"),
         createdAt = getLong("createdAt")
@@ -74,6 +82,7 @@ class GeoStore(private val dir: File) {
     private fun JSONObject.toEvent() = GeoEvent(
         id = getLong("id"),
         pointId = getLong("pointId"),
+        pointName = optString("pointName", "Punkt"),
         type = getString("type"),
         lat = getDouble("lat"),
         lon = getDouble("lon"),
@@ -83,6 +92,7 @@ class GeoStore(private val dir: File) {
 
     private fun GeoPoint.toJson() = JSONObject()
         .put("id", id)
+        .put("name", name)
         .put("lat", lat)
         .put("lon", lon)
         .put("createdAt", createdAt)
@@ -90,6 +100,7 @@ class GeoStore(private val dir: File) {
     private fun GeoEvent.toJson() = JSONObject()
         .put("id", id)
         .put("pointId", pointId)
+        .put("pointName", pointName)
         .put("type", type)
         .put("lat", lat)
         .put("lon", lon)

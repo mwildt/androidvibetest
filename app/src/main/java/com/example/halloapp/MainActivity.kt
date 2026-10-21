@@ -19,6 +19,7 @@ import com.example.halloapp.data.GeoEvent
 import com.example.halloapp.data.GeoPoint
 import com.example.halloapp.data.GeoStore
 import com.example.halloapp.location.GeoTrackingService
+import com.example.halloapp.ui.GeoMapView
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -53,7 +54,7 @@ class MainActivity : ComponentActivity() {
                     hasBackgroundPermission = ::hasBackgroundPermission,
                     requestPermissions = { permissionLauncher.launch(permissionsToAsk().toTypedArray()) },
                     requestBackgroundPermission = { backgroundPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION) },
-                    onMark = { GeoTrackingService.mark(this) },
+                    onMark = { name -> GeoTrackingService.mark(this, name) },
                     onStartService = { GeoTrackingService.start(this) },
                     onStopService = { GeoTrackingService.stop(this) }
                 )
@@ -99,7 +100,7 @@ fun GeoAppScreen(
     hasBackgroundPermission: () -> Boolean,
     requestPermissions: () -> Unit,
     requestBackgroundPermission: () -> Unit,
-    onMark: () -> Unit,
+    onMark: (String) -> Unit,
     onStartService: () -> Unit,
     onStopService: () -> Unit
 ) {
@@ -107,6 +108,7 @@ fun GeoAppScreen(
     var events by remember { mutableStateOf(store.loadEvents()) }
     var tracking by remember { mutableStateOf(true) }
     var tab by remember { mutableIntStateOf(0) }
+    var showNameDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -116,17 +118,21 @@ fun GeoAppScreen(
         }
     }
 
+    if (showNameDialog) {
+        NameDialog(
+            onConfirm = { name ->
+                showNameDialog = false
+                if (hasPermissions()) onMark(name) else requestPermissions()
+            },
+            onDismiss = { showNameDialog = false }
+        )
+    }
+
     Scaffold(
         floatingActionButton = {
-            if (tab == 0) {
+            if (tab != 1) {
                 ExtendedFloatingActionButton(
-                    onClick = {
-                        if (hasPermissions()) {
-                            onMark()
-                        } else {
-                            requestPermissions()
-                        }
-                    }
+                    onClick = { showNameDialog = true }
                 ) {
                     Text("Position markieren")
                 }
@@ -163,10 +169,12 @@ fun GeoAppScreen(
             TabRow(selectedTabIndex = tab) {
                 Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Punkte (${points.size})") })
                 Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Events (${events.size})") })
+                Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("Karte") })
             }
             when (tab) {
                 0 -> PointsList(points)
-                else -> EventsList(events)
+                1 -> EventsList(events)
+                else -> GeoMapView(points = points, modifier = Modifier.fillMaxSize())
             }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -189,6 +197,35 @@ fun GeoAppScreen(
 }
 
 @Composable
+fun NameDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Position markieren") },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Name des Ortes") },
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(name.ifBlank { "Punkt" }) },
+            ) {
+                Text("Speichern")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Abbrechen")
+            }
+        }
+    )
+}
+
+@Composable
 fun PointsList(points: List<GeoPoint>) {
     if (points.isEmpty()) {
         EmptyHint("Noch keine Punkte markiert. Tippe auf „Position markieren“.")
@@ -197,8 +234,8 @@ fun PointsList(points: List<GeoPoint>) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         items(points.reversed(), key = { it.id }) { point ->
             ListItem(
-                headlineContent = { Text("#${point.id % 100000} %.5f / %.5f".format(point.lat, point.lon)) },
-                supportingContent = { Text(formatTime(point.createdAt)) }
+                headlineContent = { Text(point.name) },
+                supportingContent = { Text("%.5f / %.5f – %s".format(point.lat, point.lon, formatTime(point.createdAt))) }
             )
             HorizontalDivider()
         }
@@ -215,12 +252,10 @@ fun EventsList(events: List<GeoEvent>) {
         items(events.reversed(), key = { it.id }) { event ->
             val typeText = if (event.type == "enter") "Betreten" else "Verlassen"
             ListItem(
-                headlineContent = { Text("$typeText – Punkt #${event.pointId % 100000}") },
+                headlineContent = { Text("$typeText – ${event.pointName}") },
                 supportingContent = {
                     Text(
-                        "%.5f / %.5f – %.0f m – %s".format(
-                            event.lat, event.lon, event.distance, formatTime(event.timestamp)
-                        )
+                        "%.0f m – %s".format(event.distance, formatTime(event.timestamp))
                     )
                 }
             )

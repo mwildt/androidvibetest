@@ -36,6 +36,8 @@ class GeoTrackingService : Service() {
 
     private val locationListener = LocationListener { location ->
         lastKnownLocation = location
+        CurrentLocationHolder.lat = location.latitude
+        CurrentLocationHolder.lon = location.longitude
         onLocation(location.latitude, location.longitude)
     }
 
@@ -52,7 +54,9 @@ class GeoTrackingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_MARK -> if (hasLocationPermission()) markCurrentPosition()
+            ACTION_MARK -> if (hasLocationPermission()) markCurrentPosition(
+                intent.getStringExtra(EXTRA_NAME) ?: "Punkt"
+            )
             ACTION_REFRESH_POINTS -> {
                 points = store.loadPoints()
                 pointVersion = points.hashCode()
@@ -95,7 +99,7 @@ class GeoTrackingService : Service() {
         }
     }
 
-    private fun markCurrentPosition() {
+    private fun markCurrentPosition(name: String) {
         val fallback = runCatching {
             locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
                 ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
@@ -106,6 +110,7 @@ class GeoTrackingService : Service() {
         pointVersion = points.hashCode()
         val newPoint = GeoPoint(
             id = System.currentTimeMillis(),
+            name = name,
             lat = last.latitude,
             lon = last.longitude,
             createdAt = System.currentTimeMillis()
@@ -145,6 +150,7 @@ class GeoTrackingService : Service() {
         val event = GeoEvent(
             id = eventIdCounter.incrementAndGet(),
             pointId = point.id,
+            pointName = point.name,
             type = type,
             lat = lat,
             lon = lon,
@@ -190,6 +196,7 @@ class GeoTrackingService : Service() {
 
     companion object {
         const val ACTION_MARK = "com.example.halloapp.action.MARK"
+        const val EXTRA_NAME = "com.example.halloapp.extra.NAME"
         const val ACTION_REFRESH_POINTS = "com.example.halloapp.action.REFRESH_POINTS"
         const val ACTION_STOP = "com.example.halloapp.action.STOP"
         const val ENTER_RADIUS_M = 50.0f
@@ -208,8 +215,10 @@ class GeoTrackingService : Service() {
             }
         }
 
-        fun mark(context: Context) {
-            val intent = Intent(context, GeoTrackingService::class.java).setAction(ACTION_MARK)
+        fun mark(context: Context, name: String) {
+            val intent = Intent(context, GeoTrackingService::class.java)
+                .setAction(ACTION_MARK)
+                .putExtra(EXTRA_NAME, name)
             startForegroundSafely(context, intent)
         }
 
