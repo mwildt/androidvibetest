@@ -174,7 +174,7 @@ fun GeoAppScreen(
             when (tab) {
                 0 -> PointsList(points)
                 1 -> EventsList(events)
-                else -> GeoMapView(points = points, modifier = Modifier.fillMaxSize())
+                else -> GeoMapView(geoPoints = points, modifier = Modifier.fillMaxSize())
             }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
