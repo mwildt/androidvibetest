@@ -32,6 +32,10 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { }
 
+    private val backgroundPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = GeoStore(File(filesDir, "geo"))
@@ -46,7 +50,9 @@ class MainActivity : ComponentActivity() {
                 GeoAppScreen(
                     store = store,
                     hasPermissions = ::hasPermissions,
+                    hasBackgroundPermission = ::hasBackgroundPermission,
                     requestPermissions = { permissionLauncher.launch(permissionsToAsk().toTypedArray()) },
+                    requestBackgroundPermission = { backgroundPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION) },
                     onMark = { GeoTrackingService.mark(this) },
                     onStartService = { GeoTrackingService.start(this) },
                     onStopService = { GeoTrackingService.stop(this) }
@@ -66,6 +72,14 @@ class MainActivity : ComponentActivity() {
         return fine || coarse
     }
 
+    private fun hasBackgroundPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
     private fun permissionsToAsk(): MutableList<String> {
         val perms = mutableListOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
@@ -82,7 +96,9 @@ class MainActivity : ComponentActivity() {
 fun GeoAppScreen(
     store: GeoStore,
     hasPermissions: () -> Boolean,
+    hasBackgroundPermission: () -> Boolean,
     requestPermissions: () -> Unit,
+    requestBackgroundPermission: () -> Unit,
     onMark: () -> Unit,
     onStartService: () -> Unit,
     onStopService: () -> Unit
@@ -125,6 +141,23 @@ fun GeoAppScreen(
                         modifier = Modifier.padding(12.dp),
                         style = MaterialTheme.typography.bodyMedium
                     )
+                }
+            } else if (!hasBackgroundPermission()) {
+                Surface(color = MaterialTheme.colorScheme.tertiaryContainer, modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "Für Hintergrund-Logging „Immer erlauben“ für den Standort aktivieren.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = requestBackgroundPermission) {
+                            Text("Erteilen")
+                        }
+                    }
                 }
             }
             TabRow(selectedTabIndex = tab) {
