@@ -1,6 +1,5 @@
 package com.example.halloapp.ui
 
-import android.view.View
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -16,7 +15,7 @@ import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
 
 @Composable
-fun GeoMapView(points: List<GeoPoint>, modifier: Modifier = Modifier) {
+fun GeoMapView(geoPoints: List<GeoPoint>, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val mapView = remember {
         MapView(context).apply {
@@ -38,25 +37,24 @@ fun GeoMapView(points: List<GeoPoint>, modifier: Modifier = Modifier) {
             val currentLat = CurrentLocationHolder.lat
             val currentLon = CurrentLocationHolder.lon
 
-            points.forEach { point ->
+            geoPoints.forEach { point ->
                 val center = OsmGeoPoint(point.lat, point.lon)
-                view.overlays.add(
-                    Polygon(view.context).apply {
-                        points = Polygon.pointsAsCircle(center, 50.0)
-                        outlinePaint.color = android.graphics.Color.argb(200, 33, 150, 243)
-                        outlinePaint.strokeWidth = 2f
-                        fillPaint.color = android.graphics.Color.argb(40, 33, 150, 243)
-                    }
-                )
-                view.overlays.add(
-                    Polygon(view.context).apply {
-                        points = Polygon.pointsAsCircle(center, 100.0)
-                        outlinePaint.color = android.graphics.Color.argb(200, 33, 150, 243)
-                        outlinePaint.strokeWidth = 2f
-                        outlinePaint.setPathEffect(android.graphics.DashPathEffect(floatArrayOf(10f, 10f), 0f))
-                        fillPaint.color = android.graphics.Color.argb(15, 33, 150, 243)
-                    }
-                )
+
+                val enterCircle = Polygon(view)
+                enterCircle.setPoints(Polygon.pointsAsCircle(center, ENTER_RADIUS_M))
+                enterCircle.outlinePaint.color = android.graphics.Color.argb(200, 33, 150, 243)
+                enterCircle.outlinePaint.strokeWidth = 2f
+                enterCircle.fillPaint.color = android.graphics.Color.argb(40, 33, 150, 243)
+                view.overlays.add(enterCircle)
+
+                val exitCircle = Polygon(view)
+                exitCircle.setPoints(Polygon.pointsAsCircle(center, EXIT_RADIUS_M))
+                exitCircle.outlinePaint.color = android.graphics.Color.argb(200, 33, 150, 243)
+                exitCircle.outlinePaint.strokeWidth = 2f
+                exitCircle.outlinePaint.setPathEffect(android.graphics.DashPathEffect(floatArrayOf(10f, 10f), 0f))
+                exitCircle.fillPaint.color = android.graphics.Color.argb(15, 33, 150, 243)
+                view.overlays.add(exitCircle)
+
                 view.overlays.add(
                     Marker(view).apply {
                         position = center
@@ -86,3 +84,6 @@ fun GeoMapView(points: List<GeoPoint>, modifier: Modifier = Modifier) {
         }
     )
 }
+
+private const val ENTER_RADIUS_M = 50.0
+private const val EXIT_RADIUS_M = 100.0
