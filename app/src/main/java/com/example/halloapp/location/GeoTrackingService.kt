@@ -105,14 +105,52 @@ class GeoTrackingService : Service() {
                 ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
         }.getOrNull()
         val last = lastKnownLocation ?: fallback
-        last ?: return
+        if (last != null) {
+            savePoint(last.latitude, last.longitude, name)
+        } else {
+            pendingName = name
+            requestSingleFix()
+        }
+    }
+
+    private var pendingName: String? = null
+    private var singleFixListener: LocationListener? = null
+
+    private fun requestSingleFix() {
+        if (singleFixListener != null) return
+        val listener = LocationListener { location ->
+            lastKnownLocation = location
+            CurrentLocationHolder.lat = location.latitude
+            CurrentLocationHolder.lon = location.longitude
+            onLocation(location.latitude, location.longitude)
+            pendingName?.let { savePoint(location.latitude, location.longitude, it) }
+            pendingName = null
+            singleFixListener?.let { runCatching { locationManager.removeUpdates(it) } }
+            singleFixListener = null
+        }
+        singleFixListener = listener
+        runCatching {
+            locationManager.requestSingleUpdate(
+                LocationManager.GPS_PROVIDER,
+                listener,
+                mainLooper
+            )
+            locationManager.requestSingleUpdate(
+                LocationManager.NETWORK_PROVIDER,
+                listener,
+                mainLooper
+            )
+        }
+    }
+
+    private fun savePoint(lat: Double, lon: Double, name: String) {
         points = store.loadPoints()
         pointVersion = points.hashCode()
         val newPoint = GeoPoint(
             id = System.currentTimeMillis(),
             name = name,
-            lat = last.latitude,
-            lon = last.longitude,
+            lat = lat,
+            lon = lon,
             createdAt = System.currentTimeMillis()
         )
         store.savePoints(points + newPoint)
