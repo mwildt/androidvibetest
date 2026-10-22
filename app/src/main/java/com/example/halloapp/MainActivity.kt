@@ -114,12 +114,16 @@ fun GeoAppScreen(
     var showNameDialog by remember { mutableStateOf(false) }
     var pendingMapPoint by remember { mutableStateOf<Pair<Double, Double>?>(null) }
     var locationIssue by remember { mutableStateOf<String?>(null) }
+    var currentLat by remember { mutableStateOf<Double?>(null) }
+    var currentLon by remember { mutableStateOf<Double?>(null) }
 
     LaunchedEffect(Unit) {
         while (true) {
             kotlinx.coroutines.delay(2000)
             points = store.loadPoints()
             events = store.loadEvents()
+            currentLat = CurrentLocationHolder.lat
+            currentLon = CurrentLocationHolder.lon
             locationIssue = when {
                 !hasPermissions() -> null
                 CurrentLocationHolder.gpsEnabled == false &&
@@ -203,7 +207,7 @@ fun GeoAppScreen(
                 Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("Karte") })
             }
             when (tab) {
-                0 -> PointsList(points)
+                0 -> PointsList(points, currentLat, currentLon)
                 1 -> EventsList(events)
                 else -> GeoMapView(
                     geoPoints = points,
@@ -264,16 +268,37 @@ fun NameDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
 }
 
 @Composable
-fun PointsList(points: List<GeoPoint>) {
+fun PointsList(points: List<GeoPoint>, currentLat: Double?, currentLon: Double?) {
     if (points.isEmpty()) {
         EmptyHint("Noch keine Punkte markiert. Tippe auf „Position markieren“.")
         return
     }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         items(points.reversed(), key = { it.id }) { point ->
+            val distanceText = if (currentLat != null && currentLon != null) {
+                val d = GeoStore.distanceBetween(currentLat, currentLon, point.lat, point.lon)
+                if (d <= GeoTrackingService.ENTER_RADIUS_M) {
+                    "📍 im Geofence – %.0f m entfernt".format(d)
+                } else {
+                    "%.0f m entfernt".format(d)
+                }
+            } else {
+                null
+            }
             ListItem(
                 headlineContent = { Text(point.name) },
-                supportingContent = { Text("%.5f / %.5f – %s".format(point.lat, point.lon, formatTime(point.createdAt))) }
+                supportingContent = {
+                    Column {
+                        Text("%.5f / %.5f – %s".format(point.lat, point.lon, formatTime(point.createdAt)))
+                        distanceText?.let {
+                            Text(
+                                it,
+                                color = if (it.startsWith("📍")) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             )
             HorizontalDivider()
         }
