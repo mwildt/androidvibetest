@@ -208,7 +208,7 @@ fun GeoAppScreen(
                 else -> GeoMapView(
                     geoPoints = points,
                     modifier = Modifier.fillMaxSize(),
-                    onMapLongPress = { lat, lon ->
+                    onSaveAt = { lat, lon ->
                         pendingMapPoint = lat to lon
                         showNameDialog = true
                     }
