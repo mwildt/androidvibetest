@@ -55,15 +55,15 @@ fun GeoMapView(
         mapView.overlays.add(
             0,
             MapEventsOverlay(object : MapEventsReceiver {
-                override fun singleTapConfirmedHelper(p: OsmGeoPoint?): Boolean {
+                override fun singleTapConfirmedHelper(p: OsmGeoPoint?): Boolean = false
+
+                override fun longPressHelper(p: OsmGeoPoint?): Boolean {
                     p?.let {
                         pendingLat = it.latitude
                         pendingLon = it.longitude
                     }
                     return true
                 }
-
-                override fun longPressHelper(p: OsmGeoPoint?): Boolean = false
             })
         )
         onDispose { mapView.onDetach() }
