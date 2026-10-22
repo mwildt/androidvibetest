@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.example.halloapp.data.GeoEvent
 import com.example.halloapp.data.GeoPoint
 import com.example.halloapp.data.GeoStore
+import com.example.halloapp.location.CurrentLocationHolder
 import com.example.halloapp.location.GeoTrackingService
 import com.example.halloapp.ui.GeoMapView
 import java.io.File
@@ -109,12 +110,22 @@ fun GeoAppScreen(
     var tracking by remember { mutableStateOf(true) }
     var tab by remember { mutableIntStateOf(0) }
     var showNameDialog by remember { mutableStateOf(false) }
+    var locationIssue by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         while (true) {
             kotlinx.coroutines.delay(2000)
             points = store.loadPoints()
             events = store.loadEvents()
+            locationIssue = when {
+                !hasPermissions() -> null
+                CurrentLocationHolder.gpsEnabled == false &&
+                    CurrentLocationHolder.networkEnabled == false ->
+                    "Standort ist deaktiviert. Bitte in den Android-Einstellungen den Standort (GPS) einschalten."
+                CurrentLocationHolder.lastFixAt == null && tracking ->
+                    "Noch keine Position empfangen. GPS-Signal wird gesucht… (draußen funktioniert es am besten)"
+                else -> null
+            }
         }
     }
 
@@ -164,6 +175,15 @@ fun GeoAppScreen(
                             Text("Erteilen")
                         }
                     }
+                }
+            }
+            locationIssue?.let { message ->
+                Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        message,
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
             TabRow(selectedTabIndex = tab) {

@@ -38,6 +38,7 @@ class GeoTrackingService : Service() {
         lastKnownLocation = location
         CurrentLocationHolder.lat = location.latitude
         CurrentLocationHolder.lon = location.longitude
+        CurrentLocationHolder.lastFixAt = System.currentTimeMillis()
         onLocation(location.latitude, location.longitude)
     }
 
@@ -49,6 +50,7 @@ class GeoTrackingService : Service() {
         pointVersion = points.hashCode()
         createChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
+        updateProviderState()
         requestLocationUpdates()
     }
 
@@ -74,6 +76,15 @@ class GeoTrackingService : Service() {
     override fun onDestroy() {
         runCatching { locationManager.removeUpdates(locationListener) }
         super.onDestroy()
+    }
+
+    private fun updateProviderState() {
+        CurrentLocationHolder.gpsEnabled = runCatching {
+            locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        }.getOrDefault(false)
+        CurrentLocationHolder.networkEnabled = runCatching {
+            locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        }.getOrDefault(false)
     }
 
     private fun hasLocationPermission(): Boolean =
@@ -237,8 +248,8 @@ class GeoTrackingService : Service() {
         const val EXTRA_NAME = "com.example.halloapp.extra.NAME"
         const val ACTION_REFRESH_POINTS = "com.example.halloapp.action.REFRESH_POINTS"
         const val ACTION_STOP = "com.example.halloapp.action.STOP"
-        const val ENTER_RADIUS_M = 50.0f
-        const val EXIT_RADIUS_M = 100.0f
+        const val ENTER_RADIUS_M = 25.0f
+        const val EXIT_RADIUS_M = 50.0f
         private const val CHANNEL_ID = "geo_tracking"
         private const val NOTIFICATION_ID = 1
         private const val LOCATION_INTERVAL_MS = 10_000L
