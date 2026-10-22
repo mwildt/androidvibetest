@@ -32,7 +32,12 @@ class MainActivity : ComponentActivity() {
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { }
+    ) { grants ->
+        val granted = grants.values.any { it }
+        if (granted && !hasBackgroundPermission()) {
+            backgroundPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+        }
+    }
 
     private val backgroundPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -44,6 +49,8 @@ class MainActivity : ComponentActivity() {
 
         if (!hasPermissions()) {
             permissionLauncher.launch(permissionsToAsk().toTypedArray())
+        } else if (!hasBackgroundPermission()) {
+            backgroundPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
         }
         GeoTrackingService.start(this)
 
