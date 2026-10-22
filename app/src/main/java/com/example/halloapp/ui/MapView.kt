@@ -20,14 +20,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.halloapp.data.GeoPoint
 import com.example.halloapp.location.CurrentLocationHolder
+import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint as OsmGeoPoint
 import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
 
 @Composable
-fun GeoMapView(geoPoints: List<GeoPoint>, modifier: Modifier = Modifier) {
+fun GeoMapView(
+    geoPoints: List<GeoPoint>,
+    modifier: Modifier = Modifier,
+    onMapLongPress: (Double, Double) -> Unit = { _, _ -> }
+) {
     val context = LocalContext.current
     val mapView = remember {
         MapView(context).apply {
@@ -38,6 +44,17 @@ fun GeoMapView(geoPoints: List<GeoPoint>, modifier: Modifier = Modifier) {
     }
 
     DisposableEffect(Unit) {
+        mapView.overlays.add(
+            0,
+            MapEventsOverlay(object : MapEventsReceiver {
+                override fun singleTapConfirmedHelper(p: OsmGeoPoint?): Boolean = false
+
+                override fun longPressHelper(p: OsmGeoPoint?): Boolean {
+                    p?.let { onMapLongPress(it.latitude, it.longitude) }
+                    return true
+                }
+            })
+        )
         onDispose { mapView.onDetach() }
     }
 

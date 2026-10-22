@@ -56,6 +56,7 @@ class MainActivity : ComponentActivity() {
                     requestPermissions = { permissionLauncher.launch(permissionsToAsk().toTypedArray()) },
                     requestBackgroundPermission = { backgroundPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION) },
                     onMark = { name -> GeoTrackingService.mark(this, name) },
+                    onSaveAt = { lat, lon, name -> GeoTrackingService.savePointAt(this, lat, lon, name) },
                     onStartService = { GeoTrackingService.start(this) },
                     onStopService = { GeoTrackingService.stop(this) }
                 )
@@ -102,6 +103,7 @@ fun GeoAppScreen(
     requestPermissions: () -> Unit,
     requestBackgroundPermission: () -> Unit,
     onMark: (String) -> Unit,
+    onSaveAt: (Double, Double, String) -> Unit,
     onStartService: () -> Unit,
     onStopService: () -> Unit
 ) {
@@ -110,6 +112,7 @@ fun GeoAppScreen(
     var tracking by remember { mutableStateOf(true) }
     var tab by remember { mutableIntStateOf(0) }
     var showNameDialog by remember { mutableStateOf(false) }
+    var pendingMapPoint by remember { mutableStateOf<Pair<Double, Double>?>(null) }
     var locationIssue by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
@@ -133,9 +136,17 @@ fun GeoAppScreen(
         NameDialog(
             onConfirm = { name ->
                 showNameDialog = false
-                if (hasPermissions()) onMark(name) else requestPermissions()
+                pendingMapPoint?.let { (lat, lon) ->
+                    pendingMapPoint = null
+                    onSaveAt(lat, lon, name)
+                } ?: run {
+                    if (hasPermissions()) onMark(name) else requestPermissions()
+                }
             },
-            onDismiss = { showNameDialog = false }
+            onDismiss = {
+                showNameDialog = false
+                pendingMapPoint = null
+            }
         )
     }
 
@@ -194,7 +205,14 @@ fun GeoAppScreen(
             when (tab) {
                 0 -> PointsList(points)
                 1 -> EventsList(events)
-                else -> GeoMapView(geoPoints = points, modifier = Modifier.fillMaxSize())
+                else -> GeoMapView(
+                    geoPoints = points,
+                    modifier = Modifier.fillMaxSize(),
+                    onMapLongPress = { lat, lon ->
+                        pendingMapPoint = lat to lon
+                        showNameDialog = true
+                    }
+                )
             }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),

@@ -59,6 +59,13 @@ class GeoTrackingService : Service() {
             ACTION_MARK -> if (hasLocationPermission()) markCurrentPosition(
                 intent.getStringExtra(EXTRA_NAME) ?: "Punkt"
             )
+            ACTION_SAVE_POINT_AT -> {
+                val lat = intent.getDoubleExtra(EXTRA_LAT, Double.NaN)
+                val lon = intent.getDoubleExtra(EXTRA_LON, Double.NaN)
+                if (!lat.isNaN() && !lon.isNaN()) {
+                    savePoint(lat, lon, intent.getStringExtra(EXTRA_NAME) ?: "Punkt")
+                }
+            }
             ACTION_REFRESH_POINTS -> {
                 points = store.loadPoints()
                 pointVersion = points.hashCode()
@@ -245,7 +252,10 @@ class GeoTrackingService : Service() {
 
     companion object {
         const val ACTION_MARK = "com.example.halloapp.action.MARK"
+        const val ACTION_SAVE_POINT_AT = "com.example.halloapp.action.SAVE_POINT_AT"
         const val EXTRA_NAME = "com.example.halloapp.extra.NAME"
+        const val EXTRA_LAT = "com.example.halloapp.extra.LAT"
+        const val EXTRA_LON = "com.example.halloapp.extra.LON"
         const val ACTION_REFRESH_POINTS = "com.example.halloapp.action.REFRESH_POINTS"
         const val ACTION_STOP = "com.example.halloapp.action.STOP"
         const val ENTER_RADIUS_M = 25.0f
@@ -268,6 +278,15 @@ class GeoTrackingService : Service() {
             val intent = Intent(context, GeoTrackingService::class.java)
                 .setAction(ACTION_MARK)
                 .putExtra(EXTRA_NAME, name)
+            startForegroundSafely(context, intent)
+        }
+
+        fun savePointAt(context: Context, lat: Double, lon: Double, name: String) {
+            val intent = Intent(context, GeoTrackingService::class.java)
+                .setAction(ACTION_SAVE_POINT_AT)
+                .putExtra(EXTRA_NAME, name)
+                .putExtra(EXTRA_LAT, lat)
+                .putExtra(EXTRA_LON, lon)
             startForegroundSafely(context, intent)
         }
 
