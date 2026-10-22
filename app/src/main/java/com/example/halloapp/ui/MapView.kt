@@ -5,12 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -121,14 +120,14 @@ fun GeoMapView(geoPoints: List<GeoPoint>, modifier: Modifier = Modifier) {
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 modifier = Modifier.padding(top = 8.dp)
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Zoom rein")
+                Text("+", style = MaterialTheme.typography.titleLarge)
             }
             SmallFloatingActionButton(
                 onClick = { mapView.controller.setZoom((mapView.zoomLevelDouble - 1.0).coerceAtLeast(3.0)) },
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 modifier = Modifier.padding(top = 8.dp)
             ) {
-                Icon(Icons.Filled.Remove, contentDescription = "Zoom raus")
+                Text("–", style = MaterialTheme.typography.titleLarge)
             }
         }
     }
