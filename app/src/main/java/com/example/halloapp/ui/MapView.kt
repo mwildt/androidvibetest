@@ -2,8 +2,7 @@ package com.example.halloapp.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.matchParentSize
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
@@ -12,6 +11,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -71,21 +71,28 @@ fun GeoMapView(
 
     Box(modifier = modifier) {
         AndroidView(
-            modifier = Modifier.matchParentSize(),
+            modifier = Modifier
+                .fillMaxSize(),
             factory = { mapView },
             update = { view ->
-                view.overlays.removeAll { it is Marker || (it is Polygon && it !is PendingTag) }
+                view.overlays.removeAll { it is Marker || it is Polygon }
                 val currentLat = CurrentLocationHolder.lat
                 val currentLon = CurrentLocationHolder.lon
 
                 geoPoints.forEach { point ->
-                    addPointOverlays(view, point.lat, point.lon, point.name)
+                    addCircles(
+                        view, point.lat, point.lon,
+                        blueColor = true, withMarker = true, title = point.name
+                    )
                 }
 
-                pendingLat?.let { lat ->
-                    pendingLon?.let { lon ->
-                        addPendingOverlays(view, lat, lon)
-                    }
+                val pLat = pendingLat
+                val pLon = pendingLon
+                if (pLat != null && pLon != null) {
+                    addCircles(
+                        view, pLat, pLon,
+                        blueColor = false, withMarker = true, title = "Neue Position"
+                    )
                 }
 
                 currentLat?.let { lat ->
@@ -158,7 +165,7 @@ fun GeoMapView(
                 ) {
                     Text("Position speichern…")
                 }
-                androidx.compose.material3.TextButton(
+                TextButton(
                     onClick = {
                         pendingLat = null
                         pendingLon = null
@@ -171,62 +178,47 @@ fun GeoMapView(
     }
 }
 
-private class PendingTag
-
-private fun addPointOverlays(view: MapView, lat: Double, lon: Double, name: String) {
+private fun addCircles(
+    view: MapView,
+    lat: Double,
+    lon: Double,
+    blueColor: Boolean,
+    withMarker: Boolean,
+    title: String
+) {
     val center = OsmGeoPoint(lat, lon)
+    val outline = if (blueColor) android.graphics.Color.argb(200, 33, 150, 243)
+    else android.graphics.Color.argb(220, 255, 152, 0)
+    val fillEnter = if (blueColor) android.graphics.Color.argb(40, 33, 150, 243)
+    else android.graphics.Color.argb(50, 255, 152, 0)
+    val fillExit = if (blueColor) android.graphics.Color.argb(15, 33, 150, 243)
+    else android.graphics.Color.argb(20, 255, 152, 0)
+
     val enterCircle = Polygon(view)
     enterCircle.setPoints(Polygon.pointsAsCircle(center, ENTER_RADIUS_M))
-    enterCircle.outlinePaint.color = android.graphics.Color.argb(200, 33, 150, 243)
-    enterCircle.outlinePaint.strokeWidth = 2f
-    enterCircle.fillPaint.color = android.graphics.Color.argb(40, 33, 150, 243)
+    enterCircle.outlinePaint.color = outline
+    enterCircle.outlinePaint.strokeWidth = if (blueColor) 2f else 3f
+    enterCircle.fillPaint.color = fillEnter
     view.overlays.add(enterCircle)
 
     val exitCircle = Polygon(view)
     exitCircle.setPoints(Polygon.pointsAsCircle(center, EXIT_RADIUS_M))
-    exitCircle.outlinePaint.color = android.graphics.Color.argb(200, 33, 150, 243)
-    exitCircle.outlinePaint.strokeWidth = 2f
+    exitCircle.outlinePaint.color = outline
+    exitCircle.outlinePaint.strokeWidth = if (blueColor) 2f else 3f
     exitCircle.outlinePaint.setPathEffect(android.graphics.DashPathEffect(floatArrayOf(10f, 10f), 0f))
-    exitCircle.fillPaint.color = android.graphics.Color.argb(15, 33, 150, 243)
+    exitCircle.fillPaint.color = fillExit
     view.overlays.add(exitCircle)
 
-    view.overlays.add(
-        Marker(view).apply {
-            position = center
-            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-            title = name
-        }
-    )
+    if (withMarker) {
+        view.overlays.add(
+            Marker(view).apply {
+                position = center
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                this.title = title
+            }
+        )
+    }
 }
-
-private fun addPendingOverlays(view: MapView, lat: Double, lon: Double) {
-    val center = OsmGeoPoint(lat, lon)
-
-    val enterCircle = PendingPolygon(view)
-    enterCircle.setPoints(Polygon.pointsAsCircle(center, ENTER_RADIUS_M))
-    enterCircle.outlinePaint.color = android.graphics.Color.argb(220, 255, 152, 0)
-    enterCircle.outlinePaint.strokeWidth = 3f
-    enterCircle.fillPaint.color = android.graphics.Color.argb(50, 255, 152, 0)
-    view.overlays.add(enterCircle)
-
-    val exitCircle = PendingPolygon(view)
-    exitCircle.setPoints(Polygon.pointsAsCircle(center, EXIT_RADIUS_M))
-    exitCircle.outlinePaint.color = android.graphics.Color.argb(220, 255, 152, 0)
-    exitCircle.outlinePaint.strokeWidth = 3f
-    exitCircle.outlinePaint.setPathEffect(android.graphics.DashPathEffect(floatArrayOf(10f, 10f), 0f))
-    exitCircle.fillPaint.color = android.graphics.Color.argb(20, 255, 152, 0)
-    view.overlays.add(exitCircle)
-
-    view.overlays.add(
-        Marker(view).apply {
-            position = center
-            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-            title = "Neue Position"
-        }
-    )
-}
-
-private class PendingPolygon(view: MapView) : Polygon(view), PendingTag
 
 private const val ENTER_RADIUS_M = 25.0
 private const val EXIT_RADIUS_M = 50.0
