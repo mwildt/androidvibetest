@@ -27,6 +27,7 @@ import com.example.halloapp.data.GeoPoint
 import com.example.halloapp.location.CurrentLocationHolder
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint as OsmGeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.MapEventsOverlay
@@ -51,6 +52,10 @@ fun GeoMapView(
     var pendingLat by remember { mutableStateOf<Double?>(null) }
     var pendingLon by remember { mutableStateOf<Double?>(null) }
 
+    var lastRenderedPoints by remember { mutableStateOf<List<GeoPoint>?>(null) }
+    var lastRenderedPending by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var centeredOnStart by remember { mutableStateOf(false) }
+
     DisposableEffect(Unit) {
         mapView.overlays.add(
             0,
@@ -71,46 +76,55 @@ fun GeoMapView(
 
     Box(modifier = modifier) {
         AndroidView(
-            modifier = Modifier
-                .fillMaxSize(),
+            modifier = Modifier.fillMaxSize(),
             factory = { mapView },
             update = { view ->
-                view.overlays.removeAll { it is Marker || it is Polygon }
                 val currentLat = CurrentLocationHolder.lat
                 val currentLon = CurrentLocationHolder.lon
 
-                geoPoints.forEach { point ->
-                    addCircles(
-                        view, point.lat, point.lon,
-                        blueColor = true, withMarker = true, title = point.name
-                    )
+                if (!centeredOnStart && currentLat != null && currentLon != null) {
+                    centeredOnStart = true
+                    view.controller.animateTo(OsmGeoPoint(currentLat, currentLon))
+                    view.controller.setZoom(18.0)
                 }
 
-                val pLat = pendingLat
-                val pLon = pendingLon
-                if (pLat != null && pLon != null) {
-                    addCircles(
-                        view, pLat, pLon,
-                        blueColor = false, withMarker = true, title = "Neue Position"
-                    )
-                }
+                val pending = pendingLat?.let { lat -> pendingLon?.let { lon -> lat to lon } }
+                val pointsChanged = lastRenderedPoints != geoPoints
+                val pendingChanged = lastRenderedPending != pending
+                val locationMarkerChanged =
+                    lastRenderedPoints == null && lastRenderedPending == null
 
-                currentLat?.let { lat ->
-                    currentLon?.let { lon ->
-                        view.overlays.add(
-                            Marker(view).apply {
-                                position = OsmGeoPoint(lat, lon)
-                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                                icon = androidx.core.content.ContextCompat.getDrawable(
-                                    view.context,
-                                    android.R.drawable.ic_menu_mylocation
-                                )
-                                title = "Aktuelle Position"
-                            }
-                        )
+                if (pointsChanged || pendingChanged || locationMarkerChanged) {
+                    lastRenderedPoints = geoPoints
+                    lastRenderedPending = pending
+
+                    view.overlays.removeAll { it is Marker || it is Polygon }
+
+                    geoPoints.forEach { point ->
+                        addCircles(view, point.lat, point.lon, blue = true, title = point.name)
                     }
+
+                    pending?.let { (lat, lon) ->
+                        addCircles(view, lat, lon, blue = false, title = "Neue Position")
+                    }
+
+                    currentLat?.let { lat ->
+                        currentLon?.let { lon ->
+                            view.overlays.add(
+                                Marker(view).apply {
+                                    position = OsmGeoPoint(lat, lon)
+                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                    icon = androidx.core.content.ContextCompat.getDrawable(
+                                        view.context,
+                                        android.R.drawable.ic_menu_mylocation
+                                    )
+                                    title = "Aktuelle Position"
+                                }
+                            )
+                        }
+                    }
+                    view.invalidate()
                 }
-                view.invalidate()
             }
         )
 
@@ -182,42 +196,40 @@ private fun addCircles(
     view: MapView,
     lat: Double,
     lon: Double,
-    blueColor: Boolean,
-    withMarker: Boolean,
+    blue: Boolean,
     title: String
 ) {
     val center = OsmGeoPoint(lat, lon)
-    val outline = if (blueColor) android.graphics.Color.argb(200, 33, 150, 243)
+    val outline = if (blue) android.graphics.Color.argb(200, 33, 150, 243)
     else android.graphics.Color.argb(220, 255, 152, 0)
-    val fillEnter = if (blueColor) android.graphics.Color.argb(40, 33, 150, 243)
+    val fillEnter = if (blue) android.graphics.Color.argb(40, 33, 150, 243)
     else android.graphics.Color.argb(50, 255, 152, 0)
-    val fillExit = if (blueColor) android.graphics.Color.argb(15, 33, 150, 243)
+    val fillExit = if (blue) android.graphics.Color.argb(15, 33, 150, 243)
     else android.graphics.Color.argb(20, 255, 152, 0)
+    val stroke = if (blue) 2f else 3f
 
     val enterCircle = Polygon(view)
     enterCircle.setPoints(Polygon.pointsAsCircle(center, ENTER_RADIUS_M))
     enterCircle.outlinePaint.color = outline
-    enterCircle.outlinePaint.strokeWidth = if (blueColor) 2f else 3f
+    enterCircle.outlinePaint.strokeWidth = stroke
     enterCircle.fillPaint.color = fillEnter
     view.overlays.add(enterCircle)
 
     val exitCircle = Polygon(view)
     exitCircle.setPoints(Polygon.pointsAsCircle(center, EXIT_RADIUS_M))
     exitCircle.outlinePaint.color = outline
-    exitCircle.outlinePaint.strokeWidth = if (blueColor) 2f else 3f
+    exitCircle.outlinePaint.strokeWidth = stroke
     exitCircle.outlinePaint.setPathEffect(android.graphics.DashPathEffect(floatArrayOf(10f, 10f), 0f))
     exitCircle.fillPaint.color = fillExit
     view.overlays.add(exitCircle)
 
-    if (withMarker) {
-        view.overlays.add(
-            Marker(view).apply {
-                position = center
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                this.title = title
-            }
-        )
-    }
+    view.overlays.add(
+        Marker(view).apply {
+            position = center
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            this.title = title
+        }
+    )
 }
 
 private const val ENTER_RADIUS_M = 25.0

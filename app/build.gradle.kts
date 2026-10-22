@@ -33,8 +33,8 @@ android {
         applicationId = "com.example.halloapp"
         minSdk = 24
         targetSdk = 34
-        versionCode = 9
-        versionName = "1.4.3"
+        versionCode = 10
+        versionName = "1.4.4"
     }
 
     buildTypes {
