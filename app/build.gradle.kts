@@ -14,14 +14,27 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        val releaseKeystore = System.getenv("KEYSTORE_FILE")
+        val releaseStorePassword = System.getenv("KEYSTORE_PASSWORD")
+        val releaseKeyAlias = System.getenv("KEY_ALIAS")
+        val releaseKeyPassword = System.getenv("KEY_PASSWORD")
+        if (releaseKeystore != null && releaseStorePassword != null &&
+            releaseKeyAlias != null && releaseKeyPassword != null) {
+            create("releaseSigning") {
+                storeFile = file(releaseKeystore)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
     }
 
     defaultConfig {
         applicationId = "com.example.halloapp"
         minSdk = 24
         targetSdk = 34
-        versionCode = 8
-        versionName = "1.4.2"
+        versionCode = 9
+        versionName = "1.4.3"
     }
 
     buildTypes {
@@ -30,7 +43,9 @@ android {
         }
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("fixedDebug")
+            if (signingConfigs.findByName("releaseSigning") != null) {
+                signingConfig = signingConfigs.getByName("releaseSigning")
+            }
         }
     }
 

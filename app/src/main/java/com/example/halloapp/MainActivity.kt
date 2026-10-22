@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -143,6 +144,10 @@ fun GeoAppScreen(
         }
     }
 
+    BackHandler(enabled = tab != 0) {
+        tab = 0
+    }
+
     if (showNameDialog) {
         NameDialog(
             onConfirm = { name ->
@@ -213,17 +218,19 @@ fun GeoAppScreen(
                 Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Events (${events.size})") })
                 Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("Karte") })
             }
-            when (tab) {
-                0 -> PointsList(points, currentLat, currentLon)
-                1 -> EventsList(events)
-                else -> GeoMapView(
-                    geoPoints = points,
-                    modifier = Modifier.fillMaxSize(),
-                    onSaveAt = { lat, lon ->
-                        pendingMapPoint = lat to lon
-                        showNameDialog = true
-                    }
-                )
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                when (tab) {
+                    0 -> PointsList(points, currentLat, currentLon)
+                    1 -> EventsList(events)
+                    else -> GeoMapView(
+                        geoPoints = points,
+                        modifier = Modifier.fillMaxSize(),
+                        onSaveAt = { lat, lon ->
+                            pendingMapPoint = lat to lon
+                            showNameDialog = true
+                        }
+                    )
+                }
             }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
